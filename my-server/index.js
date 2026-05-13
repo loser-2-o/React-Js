@@ -1,7 +1,22 @@
 const express = require('express')
-const app = express()
+const mongoose = require('mongoose')
+require('dotenv').config()
 
+const app = express()
 app.use(express.json())
+
+// MongoDB connect
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB connected!'))
+  .catch((err) => console.log('Error:', err))
+
+// Publication Schema
+const publicationSchema = new mongoose.Schema({
+  id: Number,
+  title: String
+})
+
+const Publication = mongoose.model('Publication', publicationSchema)
 
 // Route 1 - Home
 app.get('/', (req, res) => {
@@ -11,33 +26,26 @@ app.get('/', (req, res) => {
 // Route 2 - Profile
 app.get('/profile', (req, res) => {
   res.json({
-    name: 'Professor Anamur  Rashid',
+    name: 'Professor Anamur Rashid',
     department: 'CSE',
     email: 'muhammadanamurrashid@gmail.com'
   })
 })
 
-// Route 3 - Publications
-app.get('/publications', (req, res) => {
-  res.json([
-    {
-      id: 622,
-      title: 'Generative Digital Twins for Adversarially Robust Beam Management in 6G mmWave Networks'
-    },
-    {
-      id: 294,
-      title: 'Multi-Task Deep Learning for Vitamin Deficiency Disease and Multiple-Deficiency Prediction with Risk Scoring and Data Mining Driven Pattern Discovery'
-    }
-  ])
+// Route 3 - Get all publications
+app.get('/publications', async (req, res) => {
+  const publications = await Publication.find()
+  res.json(publications)
 })
+
 // Route 4 - Add new publication
-app.post('/publications', (req, res) => {
+app.post('/publications', async (req, res) => {
   const { id, title } = req.body
-  res.json({
-    message: 'Publication added successfully!',
-    publication: { id, title }
-  })
+  const publication = new Publication({ id, title })
+  await publication.save()
+  res.json({ message: 'Publication added!', publication })
 })
-app.listen(3000, () => {
-  console.log('Server started on port 3000')
+
+app.listen(process.env.PORT, () => {
+  console.log('Server started on port', process.env.PORT)
 })
