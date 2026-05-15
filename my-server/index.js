@@ -1,9 +1,13 @@
 const express = require('express')
+const cors = require('cors')
 const mongoose = require('mongoose')
 require('dotenv').config()
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcryptjs')
 
 const app = express()
 app.use(express.json())
+app.use(cors())
 
 // MongoDB connect
 mongoose.connect(process.env.MONGO_URI)
@@ -21,6 +25,33 @@ const Publication = mongoose.model('Publication', publicationSchema)
 // Route 1 - Home
 app.get('/', (req, res) => {
   res.send('Server is running!')
+})
+// Admin Schema
+const adminSchema = new mongoose.Schema({
+  username: String,
+  password: String
+})
+
+const Admin = mongoose.model('Admin', adminSchema)
+
+// Admin Register (শুধু একবার করবে)
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body
+  const hashed = await bcrypt.hash(password, 10)
+  const admin = new Admin({ username, password: hashed })
+  await admin.save()
+  res.json({ message: 'Admin created!' })
+})
+
+// Admin Login
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body
+  const admin = await Admin.findOne({ username })
+  if (!admin) return res.status(404).json({ message: 'Admin not found' })
+  const isMatch = await bcrypt.compare(password, admin.password)
+  if (!isMatch) return res.status(401).json({ message: 'Wrong password' })
+  const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET)
+  res.json({ message: 'Login successful!', token })
 })
 
 // Route 2 - Profile
@@ -44,6 +75,11 @@ app.post('/publications', async (req, res) => {
   const publication = new Publication({ id, title })
   await publication.save()
   res.json({ message: 'Publication added!', publication })
+})
+// Delete publication
+app.delete('/publications/:id', async (req, res) => {
+  await Publication.findByIdAndDelete(req.params.id)
+  res.json({ message: 'Publication deleted!' })
 })
 
 app.listen(process.env.PORT, () => {
